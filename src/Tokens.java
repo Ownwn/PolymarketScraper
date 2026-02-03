@@ -1,6 +1,5 @@
 import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
 
 public class Tokens {
 
@@ -49,6 +48,10 @@ public class Tokens {
         return i < s.length() - 4 && s.substring(i, i+5).intern() == "false";
     }
 
+    private boolean isDot() {
+        return i < s.length() && s.charAt(i) == '.';
+    }
+
     private boolean isBool() {
         return isTrue() || isFalse();
     }
@@ -61,31 +64,34 @@ public class Tokens {
             tokens.add(new JsonBoolean(false));
             i+= 5;
         } else {
+            System.err.println(s);
             throw new RuntimeException("expecting bool ");
         }
     }
 
     private void grabNum() {
         StringBuilder numRes = new StringBuilder();
-        while (isNum()) {
+        while (isNum() || isDot()) {
             numRes.append(s.charAt(i));
             i++;
         }
-        tokens.add(new JsonNumber(Long.parseLong(numRes.toString())));
+        tokens.add(new JsonNumber(Double.parseDouble(numRes.toString())));
     }
 
     private void grabString() {
         StringBuilder res = new StringBuilder();
-        res.append(s.charAt(i++));
+        i++;
         while (true) {
             if (out()) {
+                System.err.println(s);
                 throw new RuntimeException("Missing closing JSON string");
             }
 
-            res.append(current());
+
             if (current() == '\"' && prev() != '\\') {
                 break;
             } else {
+                res.append(current());
                 i++;
             }
         }

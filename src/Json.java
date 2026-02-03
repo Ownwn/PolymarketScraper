@@ -5,12 +5,6 @@ import java.util.stream.Collectors;
 final class Parser {
     private final Tokens t;
 
-    static void main() {
-        Json res = Json.parse("{\"foo\": false, \"a\": 1}");
-        System.out.println(res);
-        System.out.println(((JsonObject) res).get("a"));
-    }
-
     static Json parseJson(String raw) {
         Parser p = new Parser(raw);
         return p.parse();
@@ -99,6 +93,10 @@ public interface Json {
     static Json parse(String s) {
         return Parser.parseJson(s.trim());
     }
+
+    static JsonObject parseObject(String s) {
+        return (JsonObject) parse(s);
+    }
 }
 
 record TokenChar(char c) implements Json {
@@ -114,7 +112,7 @@ record JsonString(String inner) implements Json {
         return inner;
     }
 }
-record JsonNumber(long inner) implements Json {
+record JsonNumber(double inner) implements Json {
     @Override
     public String toString() {
         return "" + inner;
@@ -141,8 +139,19 @@ record JsonObject(List<JsonPair> fields) implements Json { // json spec "allows"
     }
 
     public Json get(String rawKey) {
-        String key = "\"" + rawKey + "\"";
-        return fields.stream().filter(pair -> pair.left().inner().intern() == key.intern()).findFirst().map(JsonPair::right).orElse(null);
+        return fields.stream().filter(pair -> pair.left().inner().equals(rawKey)).findFirst().map(JsonPair::right).orElse(null);
+    }
+
+    public JsonObject getObj(String rawKey) {
+        return (JsonObject) get(rawKey);
+    }
+
+    public String getString(String rawKey) {
+        return ((JsonString) get(rawKey)).inner();
+    }
+
+    public double getDouble(String rawKey) {
+        return ((JsonNumber) get(rawKey)).inner();
     }
 }
 
