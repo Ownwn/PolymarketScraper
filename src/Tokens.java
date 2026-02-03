@@ -2,13 +2,12 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class Tokens {
-
-    private String s;
+    private CharSequence s;
     public List<Json> tokens = new ArrayList<>();
     private int i = 0;
 
     private void addNext(char c) {
-        if (current() != c) throw new RuntimeException("expacting " + c);
+        if (current() != c) throw new RuntimeException("expecting " + c);
         tokens.add(new TokenChar(current()));
         i++;
     }
@@ -42,10 +41,10 @@ public class Tokens {
     }
 
     private boolean isTrue() {
-        return i < s.length() -3 && s.substring(i, i+4).intern() == "true";
+        return i < s.length() -3 && s.subSequence(i, i+4).equals("true");
     }
     private boolean isFalse() {
-        return i < s.length() - 4 && s.substring(i, i+5).intern() == "false";
+        return i < s.length() - 4 && s.subSequence(i, i+5).equals("false");
     }
 
     private boolean isDot() {
@@ -99,7 +98,7 @@ public class Tokens {
         tokens.add(new JsonString(res.toString()));
     }
 
-    public Tokens(String raw) {
+    public Tokens(CharSequence raw) {
         s = raw;
 
 

@@ -31,3 +31,4 @@ bin/
 *.xml
 *.iml
 .idea/
+testData.text

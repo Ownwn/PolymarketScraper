@@ -5,12 +5,12 @@ import java.util.stream.Collectors;
 final class Parser {
     private final Tokens t;
 
-    static Json parseJson(String raw) {
+    static Json parseJson(CharSequence raw) {
         Parser p = new Parser(raw);
         return p.parse();
     }
 
-    private Parser(String raw) {
+    private Parser(CharSequence raw) {
         t = new Tokens(raw);
     }
 
