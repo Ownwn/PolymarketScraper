@@ -1,18 +1,19 @@
 static String test = "wss://echo.websocket.org";
 static String url = "wss://ws-live-data.polymarket.com";
-static Path testData = Path.of("testData.text");
+
 
 void main() {
 //    gatherTestData();
-    testTime();
+//    testTime();
+    printSummaries();
 }
 
 void gatherTestData() {
     new MessageListener(url).startListening(c -> {
         if (c.isEmpty()) return;
         try {
-            Files.writeString(testData, c, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-            Files.writeString(testData, "\n", StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+            Files.writeString(MockMessageListener.testData, c, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+            Files.writeString(MockMessageListener.testData, "\n", StandardOpenOption.CREATE, StandardOpenOption.APPEND);
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
@@ -23,7 +24,7 @@ void testTime() {
 
     List<String> lines;
     try {
-        lines = Files.readAllLines(testData);
+        lines = Files.readAllLines(MockMessageListener.testData);
     } catch (IOException e) {
         throw new RuntimeException(e);
     }
@@ -35,25 +36,7 @@ void testTime() {
 }
 
 void printSummaries() {
-    new MessageListener(url).startListening(c -> {
-        if (c.toString().trim().isBlank()) return;
-        JsonObject req = Json.parseObject(c.toString()).getObj("payload");
-        String title = req.getString("title");
-        double price = req.getDouble("price");
-        double value = price * req.getDouble("size");
-
-        if (value < 5) return;
-
-        String side = switch (req.getString("side").intern()) {
-            case "BUY" -> "bought";
-            case "SELL" -> "sold";
-            default -> throw new IllegalStateException("Unexpected value: " + req.getString("side").intern());
-        };
-
-        String user = req.getString("name");
-
-        System.out.println(user + " " + side + " $" + value + " of \"" + title + "\"");
-    });
+    new MockMessageListener(url).startListening(MessageHandler::handle);
 }
 
 void test() {

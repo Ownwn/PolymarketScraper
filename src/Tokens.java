@@ -70,11 +70,15 @@ public class Tokens {
 
     private void grabNum() {
         StringBuilder numRes = new StringBuilder();
-        while (isNum() || isDot()) {
+        boolean hasDot = false;
+        while (isNum() || (isDot() && (hasDot = true))) {
             numRes.append(s.charAt(i));
             i++;
         }
-        tokens.add(new JsonNumber(Double.parseDouble(numRes.toString())));
+
+        Json val = hasDot ? new JsonDouble(Double.parseDouble(numRes.toString()))
+                : new JsonLong(Long.parseLong(numRes.toString()));
+        tokens.add(val);
     }
 
     private void grabString() {

@@ -34,21 +34,28 @@ final class Parser {
                 default -> throw new IllegalStateException("Unexpected value in tokenchar: " + tk.c());
             };
             case JsonBoolean jb -> parseBoolean();
-            case JsonNumber jn -> parseNumber();
+            case JsonLong jl -> parseLong();
+            case JsonDouble jd -> parseDouble();
             default -> throw new IllegalStateException("Unexpected value: " + t.peek());
         };
     }
 
-    public JsonBoolean parseBoolean() {
+    private <T extends Json> T parseJsonObj(Class<T> clazz) {
         Json next = t.pop();
-        if (!(next instanceof JsonBoolean jb)) throw new RuntimeException("Expecting json boolean, got " + next);
-        return jb;
+        if (next.getClass() != clazz) throw new RuntimeException("obj parse expecting " + clazz.getName() + " got " + next.getClass());
+        return clazz.cast(next);
     }
 
-    public JsonNumber parseNumber() {
-        Json next = t.pop();
-        if (!(next instanceof JsonNumber jn)) throw new RuntimeException("Expecting json number, got " + next);
-        return jn;
+    public JsonBoolean parseBoolean() {
+        return parseJsonObj(JsonBoolean.class);
+    }
+
+    public JsonDouble parseDouble() {
+        return parseJsonObj(JsonDouble.class);
+    }
+
+    public JsonLong parseLong() {
+        return parseJsonObj(JsonLong.class);
     }
 
     public JsonObject parseObject() {
@@ -112,12 +119,20 @@ record JsonString(String inner) implements Json {
         return inner;
     }
 }
-record JsonNumber(double inner) implements Json {
+record JsonDouble(double inner) implements Json {
     @Override
     public String toString() {
         return "" + inner;
     }
 }
+
+record JsonLong(long inner) implements Json {
+    @Override
+    public String toString() {
+        return "" + inner;
+    }
+}
+
 record JsonBoolean(boolean inner) implements Json {
     @Override
     public String toString() {
@@ -151,7 +166,13 @@ record JsonObject(List<JsonPair> fields) implements Json { // json spec "allows"
     }
 
     public double getDouble(String rawKey) {
-        return ((JsonNumber) get(rawKey)).inner();
+        Json obj = get(rawKey);
+        if (obj instanceof JsonLong(long inner)) return inner;
+        return ((JsonDouble) obj).inner();
+    }
+
+    public long getLong(String rawKey) {
+        return ((JsonLong) get(rawKey)).inner();
     }
 }
 
