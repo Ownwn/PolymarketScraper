@@ -36,7 +36,10 @@ void testTime() {
 }
 
 void printSummaries() {
-    new MockMessageListener(url).startListening(MessageHandler::handle);
+    MessageHandler messageHandler = new MessageHandler();
+    new MockMessageListener(url).startListening(messageHandler::handle);
+
+    messageHandler.printTransactions();
 }
 
 void test() {
