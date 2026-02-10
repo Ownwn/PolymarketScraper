@@ -7,6 +7,7 @@ import java.util.Map;
 public class ScraperUI extends JFrame {
     private final MessageHandler messageHandler;
     private final JLabel topInstrumentLabel = new JLabel("Top Instrument: Loading...");
+    JLink link = new JLink("", "");
     private final DefaultTableModel tableModel = new DefaultTableModel(new Object[]{"Instrument (Slug)", "Hourly Buy Volume ($)"}, 0);
     private final JTextArea logArea = new JTextArea(10, 50);
 
@@ -20,7 +21,15 @@ public class ScraperUI extends JFrame {
         JPanel topPanel = new JPanel(new BorderLayout());
         topInstrumentLabel.setFont(new Font("Arial", Font.BOLD, 32));
         topInstrumentLabel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
-        topPanel.add(topInstrumentLabel, BorderLayout.CENTER);
+
+
+        this.addMouseListener(link.getMouseListener());
+
+        topPanel.add(new JPanel() {{
+            setLayout(new BorderLayout(10, 10));
+            add(topInstrumentLabel, BorderLayout.NORTH);
+            add(link, BorderLayout.SOUTH);
+        }}, BorderLayout.CENTER);
         add(topPanel, BorderLayout.NORTH);
 
         // Center Panel - Table
@@ -29,6 +38,10 @@ public class ScraperUI extends JFrame {
         JScrollPane tableScroll = new JScrollPane(table);
         tableScroll.setBorder(BorderFactory.createTitledBorder("Hourly Stats"));
         add(tableScroll, BorderLayout.CENTER);
+
+
+
+
 
         // Bottom Panel - Log
         logArea.setEditable(false);
@@ -42,16 +55,16 @@ public class ScraperUI extends JFrame {
         setSize(1400, 1000);
         setLocationRelativeTo(null);
 
-        // Refresh timer
         Timer timer = new Timer(2000, e -> refresh());
         timer.start();
     }
 
     private void refresh() {
-        // Update Top Label
-        topInstrumentLabel.setText("Top Instrument (1h): " + messageHandler.getMostBoughtInstrumentLastHour());
+        String mostBought = messageHandler.getMostBoughtInstrumentLastHour();
+        topInstrumentLabel.setText("Top Instrument (1h): " + mostBought);
+        link.setText("Click to view on polymarket");
+        link.setLink("example.com"); // todo
 
-        // Update Table
         List<Map.Entry<String, MessageHandler.Transaction>> stats = messageHandler.getHourlyStats();
         tableModel.setRowCount(0);
         for (var entry : stats) {

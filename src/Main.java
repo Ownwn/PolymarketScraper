@@ -21,14 +21,8 @@ void trackLiveTrades() {
 
     // Start listening in a separate thread
     new Thread(() -> {
-        try {
-            new MessageListener(url).startListening(messageHandler::handle);
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+        new MessageListener(url).startListening(messageHandler::handle);
     }).start();
-
-    // No need for a while(true) loop here as Swing UI keeps the app alive
 }
 
 void gatherTestData() {

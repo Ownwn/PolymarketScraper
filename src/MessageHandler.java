@@ -27,7 +27,12 @@ public class MessageHandler {
         hourlyTransactions.add(transaction);
 
         if (ui != null) {
-            ui.addLog(transaction.pretty());
+            try {
+                ui.addLog(transaction.pretty());
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+
         }
     }
 
@@ -72,10 +77,9 @@ public class MessageHandler {
     }
 
     public void printTransactions() {
-//        orderQueue.forEach(t -> System.out.println(t.pretty()));
         tallyTransactions();
         var biggest = orders.entrySet().stream().max(Comparator.comparingDouble(Map.Entry::getValue)).orElse(null);
-//        orders.forEach((key, value) -> System.out.println(value));
+
         JsonObject biggestMarket = Http.getJsonObject("https://gamma-api.polymarket.com/markets/slug/" + biggest.getKey());
         System.out.println(biggestMarket.getString("question") + " for $" + biggest.getValue());
     }
