@@ -16,6 +16,8 @@ public record MessageListener(String wssUrl) {
         HttpClient.newHttpClient()
                 .newWebSocketBuilder()
                 .buildAsync(uri, new WebSocket.Listener() {
+                    StringBuilder buffer = new StringBuilder();
+
                     @Override
                     public void onOpen(WebSocket webSocket) {
                         webSocket.request(1);
@@ -26,7 +28,11 @@ public record MessageListener(String wssUrl) {
                     public CompletionStage<?> onText(WebSocket webSocket,
                                                      CharSequence data,
                                                      boolean last) {
-                        listener.accept(data);
+                        buffer.append(data);
+                        if (last) {
+                            listener.accept(buffer.toString());
+                            buffer.setLength(0);
+                        }
                         webSocket.request(1);
                         return null;
                     }

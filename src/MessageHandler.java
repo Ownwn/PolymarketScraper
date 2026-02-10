@@ -1,8 +1,15 @@
 import java.util.*;
+import java.util.concurrent.ConcurrentLinkedDeque;
 
 public class MessageHandler {
     private Map<String, Double> orders = new HashMap<>();
     private List<Transaction> orderQueue = Collections.synchronizedList(new LinkedList<>());
+    private java.util.Deque<Transaction> hourlyTransactions = new java.util.concurrent.ConcurrentLinkedDeque<>();
+    private ScraperUI ui;
+
+    public void setUI(ScraperUI ui) {
+        this.ui = ui;
+    }
 
     public void handle(CharSequence charSequence) {
         if (charSequence.toString().trim().isBlank()) return;
@@ -13,10 +20,47 @@ public class MessageHandler {
 
         if (value < 5) return;
 
-        Transaction transaction = new Transaction(title, req.getString("name"), req.getString("slug"), req.getString("side"), req.getLong("timestamp"), value);
+        long ts = req.getLong("timestamp") * 1000;
+        Transaction transaction = new Transaction(title, req.getString("name"), req.getString("slug"), req.getString("side"), ts, value);
 
         orderQueue.add(transaction);
+        hourlyTransactions.add(transaction);
 
+        if (ui != null) {
+            ui.addLog(transaction.pretty());
+        }
+    }
+
+    public void pruneOldTransactions() {
+        long cutoff = System.currentTimeMillis() - 3600 * 1000;
+        while (!hourlyTransactions.isEmpty() && hourlyTransactions.peekFirst().timestamp < cutoff) {
+            hourlyTransactions.removeFirst();
+        }
+    }
+
+    public String getMostBoughtInstrumentLastHour() {
+        pruneOldTransactions();
+        Map<String, Transaction> hourlyOrders = getHourlyMap();
+        var biggest = hourlyOrders.entrySet().stream().max(Comparator.comparingDouble(e -> e.getValue().value)).orElse(null);
+        if (biggest == null) return "No trades in the last hour";
+        return biggest.getValue().title + " for $" + String.format("%.2f", biggest.getValue().value);
+    }
+
+    private Map<String, Transaction> getHourlyMap() {
+        Map<String, Transaction> hourlyOrders = new HashMap<>();
+        for (Transaction t : hourlyTransactions) {
+            if (t.buySide()) {
+                hourlyOrders.merge(t.slug, t, (t1, t2) -> new Transaction(t1.title, t1.user, t1.slug, t1.side, t1.timestamp, t1.value + t2.value));
+            }
+        }
+        return hourlyOrders;
+    }
+
+    public List<Map.Entry<String, Transaction>> getHourlyStats() {
+        pruneOldTransactions();
+        return getHourlyMap().entrySet().stream()
+                .sorted((a, b) -> Double.compare(b.getValue().value, a.getValue().timestamp))
+                .toList();
     }
 
     public void tallyTransactions() {
@@ -46,7 +90,7 @@ public class MessageHandler {
         }
 
         public String pretty() {
-            return user + " " + getPrettySide() + " $" + value + " of \"" + title + "\"" + slug;
+            return String.format(user + " " + getPrettySide() + " $%.2f" + " of \"" + title + "\"" + slug, value);
         }
 
         public boolean buySide() {

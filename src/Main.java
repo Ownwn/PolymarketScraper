@@ -1,3 +1,5 @@
+import javax.swing.SwingUtilities;
+
 static String test = "wss://echo.websocket.org";
 static String url = "wss://ws-live-data.polymarket.com";
 
@@ -5,7 +7,28 @@ static String url = "wss://ws-live-data.polymarket.com";
 void main() {
 //    gatherTestData();
 //    testTime();
-    printSummaries();
+    trackLiveTrades();
+}
+
+void trackLiveTrades() {
+    System.out.println("Starting live trade tracking with UI...");
+    MessageHandler messageHandler = new MessageHandler();
+    
+    ScraperUI ui = new ScraperUI(messageHandler);
+    messageHandler.setUI(ui);
+    
+    SwingUtilities.invokeLater(() -> ui.setVisible(true));
+
+    // Start listening in a separate thread
+    new Thread(() -> {
+        try {
+            new MessageListener(url).startListening(messageHandler::handle);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }).start();
+
+    // No need for a while(true) loop here as Swing UI keeps the app alive
 }
 
 void gatherTestData() {
