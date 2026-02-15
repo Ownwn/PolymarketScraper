@@ -1,5 +1,6 @@
+import java.awt.*;
 import java.util.*;
-import java.util.concurrent.ConcurrentLinkedDeque;
+import java.util.List;
 
 public class MessageHandler {
     private Map<String, Double> orders = new HashMap<>();
@@ -7,10 +8,29 @@ public class MessageHandler {
     private java.util.Deque<Transaction> hourlyTransactions = new java.util.concurrent.ConcurrentLinkedDeque<>();
     private Map<String, String> userToFullAddress = new HashMap<>();
     private final DataLogger logger = new DataLogger();
+    private List<String> excludedPatterns = new ArrayList<>(List.of("-5m-", "-15m-", "Bitcoin", "Ethereum", "Solana", "XRP"));
     private ScraperUI ui;
 
     public void setUI(ScraperUI ui) {
         this.ui = ui;
+    }
+
+    public void setExcludedPatterns(String patterns) {
+        excludedPatterns.clear();
+        for (String p : patterns.split(",")) {
+            if (!p.trim().isEmpty()) excludedPatterns.add(p.trim());
+        }
+    }
+
+    public String getExcludedPatternsString() {
+        return String.join(", ", excludedPatterns);
+    }
+
+    private boolean isExcluded(Transaction t) {
+        for (String p : excludedPatterns) {
+            if (t.slug.contains(p) || t.title.contains(p)) return true;
+        }
+        return false;
     }
 
     public void handle(CharSequence charSequence) {
@@ -59,6 +79,13 @@ public class MessageHandler {
             }
 
             long ts = payload.getLong("timestamp") * 1000;
+            
+            // FILTER: If the trade is older than 5 minutes relative to NOW, 
+            // it's a late-settled resolved market trade. Ignore it.
+            if (System.currentTimeMillis() - ts > 300 * 1000) {
+                return;
+            }
+
             Transaction transaction = new Transaction(title, user, payload.getString("slug"), payload.getString("side"), ts, value);
 
             if (shouldLog) logger.logTransaction(transaction);
@@ -66,7 +93,7 @@ public class MessageHandler {
             orderQueue.add(transaction);
             hourlyTransactions.add(transaction);
 
-            if (ui != null) {
+            if (ui != null && !isExcluded(transaction)) {
                 ui.addLog(transaction.pretty());
             }
         } catch (Exception e) {
@@ -76,9 +103,14 @@ public class MessageHandler {
 
     public void pruneOldTransactions() {
         long cutoff = System.currentTimeMillis() - 3600 * 1000;
-        while (!hourlyTransactions.isEmpty() && hourlyTransactions.peekFirst().timestamp < cutoff) {
-            hourlyTransactions.removeFirst();
-        }
+        // Use removeIf to ensure ALL old transactions are removed, even if they were appended out of order
+        hourlyTransactions.removeIf(t -> t.timestamp < cutoff);
+    }
+
+    public void clearStats() {
+        hourlyTransactions.clear();
+        orderQueue.clear();
+        userToFullAddress.clear();
     }
 
     public List<Map.Entry<String, Transaction>> getTopBoughtStats() {
@@ -100,7 +132,7 @@ public class MessageHandler {
     private Map<String, Transaction> getHourlyMap(boolean buy) {
         Map<String, Transaction> hourlyOrders = new HashMap<>();
         for (Transaction t : hourlyTransactions) {
-            if (t.buySide() == buy) {
+            if (t.buySide() == buy && !isExcluded(t)) {
                 hourlyOrders.merge(t.slug, t, (t1, t2) -> new Transaction(t1.title, t1.user, t1.slug, t1.side, t1.timestamp, t1.value + t2.value));
             }
         }
@@ -127,7 +159,7 @@ public class MessageHandler {
         pruneOldTransactions();
         Map<String, Double> spenders = new HashMap<>();
         for (Transaction t : hourlyTransactions) {
-            if (t.buySide()) {
+            if (t.buySide() && !isExcluded(t)) {
                 spenders.merge(t.user, t.value, Double::sum);
             }
         }
@@ -139,7 +171,7 @@ public class MessageHandler {
 
     public List<Transaction> getRecentTradesForUser(String user) {
         return hourlyTransactions.stream()
-                .filter(t -> t.user.equals(user))
+                .filter(t -> t.user.equals(user) && !isExcluded(t))
                 .sorted((a, b) -> Long.compare(b.timestamp, a.timestamp))
                 .limit(20)
                 .toList();

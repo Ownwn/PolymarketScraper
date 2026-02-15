@@ -43,8 +43,22 @@ public class ScraperUI extends JFrame {
         loadLogBtn.setFont(new Font("Arial", Font.BOLD, 24));
         loadLogBtn.addActionListener(e -> loadLog());
 
+        JButton filterBtn = new JButton("Filters");
+        filterBtn.setFont(new Font("Arial", Font.BOLD, 24));
+        filterBtn.addActionListener(e -> showFilters());
+
+        JButton clearBtn = new JButton("Clear Stats");
+        clearBtn.setFont(new Font("Arial", Font.BOLD, 24));
+        clearBtn.addActionListener(e -> {
+            messageHandler.clearStats();
+            refresh();
+            addLog("--- Stats Cleared ---");
+        });
+
         topPanel.add(pauseBtn);
         topPanel.add(loadLogBtn);
+        topPanel.add(filterBtn);
+        topPanel.add(clearBtn);
         add(topPanel, BorderLayout.NORTH);
         
         // ... rest of constructor ...
@@ -243,10 +257,23 @@ public class ScraperUI extends JFrame {
         }
     }
 
+    private void showFilters() {
+        String current = messageHandler.getExcludedPatternsString();
+        String input = JOptionPane.showInputDialog(this, 
+            "Enter comma-separated patterns to exclude (slug or title):\n(e.g. -5m-, -15m-, sport, election)", 
+            current);
+        if (input != null) {
+            messageHandler.setExcludedPatterns(input);
+            refresh();
+            addLog("--- Filters Updated: " + messageHandler.getExcludedPatternsString() + " ---");
+        }
+    }
+
     private void loadLog() {
         String date = JOptionPane.showInputDialog(this, "Enter date to load (yyyy-MM-dd):", 
                 java.time.LocalDate.now().toString());
         if (date != null && !date.isBlank()) {
+            messageHandler.clearStats();
             new Thread(() -> {
                 try {
                     List<String> lines = DataLogger.readRawLog(date);
