@@ -20,6 +20,7 @@ public record MessageListener(String wssUrl) {
 
                     @Override
                     public void onOpen(WebSocket webSocket) {
+                        System.out.println("WebSocket Connected to " + wssUrl);
                         webSocket.request(1);
                         webSocket.sendText(tradeSubscription, true);
                     }
@@ -30,7 +31,11 @@ public record MessageListener(String wssUrl) {
                                                      boolean last) {
                         buffer.append(data);
                         if (last) {
-                            listener.accept(buffer.toString());
+                            try {
+                                listener.accept(buffer.toString());
+                            } catch (Exception e) {
+                                System.err.println("Error handling message: " + e.getMessage());
+                            }
                             buffer.setLength(0);
                         }
                         webSocket.request(1);
@@ -41,17 +46,22 @@ public record MessageListener(String wssUrl) {
                     public CompletionStage<?> onClose(WebSocket webSocket,
                                                       int statusCode,
                                                       String reason) {
-                        System.out.println("closed: " + statusCode + " " + reason);
+                        System.out.println("WebSocket Closed: " + statusCode + " " + reason);
+                        infiniteComplete.complete(null);
                         return CompletableFuture.completedFuture(null);
                     }
 
                     @Override
                     public void onError(WebSocket webSocket, Throwable error) {
-                        error.printStackTrace();
+                        System.err.println("WebSocket Error: " + error.getMessage());
                         infiniteComplete.completeExceptionally(error);
                     }
                 }).join();
 
-        infiniteComplete.join();
+        try {
+            infiniteComplete.get();
+        } catch (Exception e) {
+            System.err.println("Listener finished with error: " + e.getMessage());
+        }
     }
 }

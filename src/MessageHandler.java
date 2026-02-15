@@ -5,6 +5,8 @@ public class MessageHandler {
     private Map<String, Double> orders = new HashMap<>();
     private List<Transaction> orderQueue = Collections.synchronizedList(new LinkedList<>());
     private java.util.Deque<Transaction> hourlyTransactions = new java.util.concurrent.ConcurrentLinkedDeque<>();
+    private Map<String, String> userToFullAddress = new HashMap<>();
+    private final DataLogger logger = new DataLogger();
     private ScraperUI ui;
 
     public void setUI(ScraperUI ui) {
@@ -12,27 +14,63 @@ public class MessageHandler {
     }
 
     public void handle(CharSequence charSequence) {
-        if (charSequence.toString().trim().isBlank()) return;
-        JsonObject req = Json.parseObject(charSequence.toString()).getObj("payload");
-        String title = req.getString("title");
-        double price = req.getDouble("price");
-        double value = price * req.getDouble("size");
+        handle(charSequence, true);
+    }
 
-        if (value < 5) return;
+    public void handle(CharSequence charSequence, boolean shouldLog) {
+        String raw = charSequence.toString().trim();
+        if (raw.isBlank()) return;
+        
+        if (shouldLog) logger.logRaw(raw);
+        
+        try {
+            Json parsed = Json.parse(raw);
+            if (!(parsed instanceof JsonObject root)) return;
+            
+            JsonObject payload = root.getObj("payload");
+            if (payload == null) return;
 
-        long ts = req.getLong("timestamp") * 1000;
-        Transaction transaction = new Transaction(title, req.getString("name"), req.getString("slug"), req.getString("side"), ts, value);
+            String title = payload.getString("title");
+            double price = payload.getDouble("price");
+            double size = payload.getDouble("size");
+            double value = price * size;
 
-        orderQueue.add(transaction);
-        hourlyTransactions.add(transaction);
+            if (value < 5) return;
 
-        if (ui != null) {
-            try {
-                ui.addLog(transaction.pretty());
-            } catch (Exception e) {
-                e.printStackTrace();
+            String user = "Unknown";
+            String rawAddress = null;
+            Json wallet = payload.get("proxyWallet");
+            if (wallet instanceof JsonString ws) {
+                rawAddress = ws.inner();
             }
 
+            Json name = payload.get("name");
+            if (name instanceof JsonString js && !js.inner().isBlank()) {
+                user = js.inner();
+            } else if (rawAddress != null) {
+                user = rawAddress;
+                if (user.length() > 10) {
+                    user = user.substring(0, 6) + "..." + user.substring(user.length() - 4);
+                }
+            }
+
+            if (rawAddress != null) {
+                userToFullAddress.put(user, rawAddress);
+            }
+
+            long ts = payload.getLong("timestamp") * 1000;
+            Transaction transaction = new Transaction(title, user, payload.getString("slug"), payload.getString("side"), ts, value);
+
+            if (shouldLog) logger.logTransaction(transaction);
+
+            orderQueue.add(transaction);
+            hourlyTransactions.add(transaction);
+
+            if (ui != null) {
+                ui.addLog(transaction.pretty());
+            }
+        } catch (Exception e) {
+            System.err.println("Error parsing message: " + e.getMessage());
         }
     }
 
@@ -43,29 +81,72 @@ public class MessageHandler {
         }
     }
 
-    public String getMostBoughtInstrumentLastHour() {
+    public List<Map.Entry<String, Transaction>> getTopBoughtStats() {
         pruneOldTransactions();
-        Map<String, Transaction> hourlyOrders = getHourlyMap();
-        var biggest = hourlyOrders.entrySet().stream().max(Comparator.comparingDouble(e -> e.getValue().value)).orElse(null);
-        if (biggest == null) return "No trades in the last hour";
-        return biggest.getValue().title + " for $" + String.format("%.2f", biggest.getValue().value);
+        return getHourlyMap(true).entrySet().stream()
+                .sorted((a, b) -> Double.compare(b.getValue().value, a.getValue().value))
+                .limit(15)
+                .toList();
     }
 
-    private Map<String, Transaction> getHourlyMap() {
+    public List<Map.Entry<String, Transaction>> getTopSoldStats() {
+        pruneOldTransactions();
+        return getHourlyMap(false).entrySet().stream()
+                .sorted((a, b) -> Double.compare(b.getValue().value, a.getValue().value))
+                .limit(15)
+                .toList();
+    }
+
+    private Map<String, Transaction> getHourlyMap(boolean buy) {
         Map<String, Transaction> hourlyOrders = new HashMap<>();
         for (Transaction t : hourlyTransactions) {
-            if (t.buySide()) {
+            if (t.buySide() == buy) {
                 hourlyOrders.merge(t.slug, t, (t1, t2) -> new Transaction(t1.title, t1.user, t1.slug, t1.side, t1.timestamp, t1.value + t2.value));
             }
         }
         return hourlyOrders;
     }
 
-    public List<Map.Entry<String, Transaction>> getHourlyStats() {
+    public String getMostBoughtInstrumentLastHour() {
         pruneOldTransactions();
-        return getHourlyMap().entrySet().stream()
-                .sorted((a, b) -> Double.compare(b.getValue().value, a.getValue().timestamp))
+        Map<String, Transaction> hourlyOrders = getHourlyMap(true);
+        var biggest = hourlyOrders.entrySet().stream().max(Comparator.comparingDouble(e -> e.getValue().value)).orElse(null);
+        if (biggest == null) return "No trades in the last hour";
+        return biggest.getValue().title + " for $" + String.format("%.2f", biggest.getValue().value);
+    }
+
+    public String getMostBoughtInstrumentSlugLastHour() {
+        pruneOldTransactions();
+        Map<String, Transaction> hourlyOrders = getHourlyMap(true);
+        var biggest = hourlyOrders.entrySet().stream().max(Comparator.comparingDouble(e -> e.getValue().value)).orElse(null);
+        if (biggest == null) return null;
+        return biggest.getValue().slug;
+    }
+
+    public List<Map.Entry<String, Double>> getTopSpenders() {
+        pruneOldTransactions();
+        Map<String, Double> spenders = new HashMap<>();
+        for (Transaction t : hourlyTransactions) {
+            if (t.buySide()) {
+                spenders.merge(t.user, t.value, Double::sum);
+            }
+        }
+        return spenders.entrySet().stream()
+                .sorted((a, b) -> Double.compare(b.getValue(), a.getValue()))
+                .limit(10)
                 .toList();
+    }
+
+    public List<Transaction> getRecentTradesForUser(String user) {
+        return hourlyTransactions.stream()
+                .filter(t -> t.user.equals(user))
+                .sorted((a, b) -> Long.compare(b.timestamp, a.timestamp))
+                .limit(20)
+                .toList();
+    }
+
+    public String getFullAddressForUser(String user) {
+        return userToFullAddress.get(user);
     }
 
     public void tallyTransactions() {
@@ -94,7 +175,7 @@ public class MessageHandler {
         }
 
         public String pretty() {
-            return String.format(user + " " + getPrettySide() + " $%.2f" + " of \"" + title + "\"" + slug, value);
+            return String.format("%s %s $%.2f of \"%s\"", user, getPrettySide(), value, title);
         }
 
         public boolean buySide() {

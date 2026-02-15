@@ -19,9 +19,17 @@ void trackLiveTrades() {
     
     SwingUtilities.invokeLater(() -> ui.setVisible(true));
 
-    // Start listening in a separate thread
+    // Start listening in a separate thread with reconnect logic
     new Thread(() -> {
-        new MessageListener(url).startListening(messageHandler::handle);
+        while (true) {
+            try {
+                new MessageListener(url).startListening(messageHandler::handle);
+            } catch (Exception e) {
+                System.err.println("Listener thread crashed, restarting in 5s... " + e.getMessage());
+            }
+            try { Thread.sleep(5000); } catch (InterruptedException ignored) {}
+            System.out.println("Attempting to reconnect...");
+        }
     }).start();
 }
 
