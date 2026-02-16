@@ -104,23 +104,38 @@ public class DeepDivePanel extends JPanel {
 
             SwingUtilities.invokeLater(() -> {
                 orderBookModel.setRowCount(0);
+                
+                // Collect and sort asks descending
+                List<JsonObject> askList = new ArrayList<>();
+                if (asks != null) {
+                    for (Json e : asks.elements()) askList.add((JsonObject) e);
+                }
+                askList.sort((a, b) -> Double.compare(Double.parseDouble(b.getString("price")), Double.parseDouble(a.getString("price"))));
+                
+                // Collect and sort bids descending
+                List<JsonObject> bidList = new ArrayList<>();
+                if (bids != null) {
+                    for (Json e : bids.elements()) bidList.add((JsonObject) e);
+                }
+                bidList.sort((a, b) -> Double.compare(Double.parseDouble(b.getString("price")), Double.parseDouble(a.getString("price"))));
+
                 double bestAsk = -1, bestBid = -1;
 
-                if (asks != null) {
-                    for (int i = 0; i < Math.min(5, asks.elements().size()); i++) {
-                        JsonObject entry = (JsonObject) asks.elements().get(i);
-                        String p = entry.getString("price");
-                        if (i == 0) bestAsk = Double.parseDouble(p);
-                        orderBookModel.addRow(new Object[]{p, entry.getString("size"), "ASK"});
-                    }
+                // Add top 5 asks (will be the lowest prices at the bottom of the ask section)
+                int askStart = Math.max(0, askList.size() - 5);
+                for (int i = askStart; i < askList.size(); i++) {
+                    JsonObject entry = askList.get(i);
+                    String p = entry.getString("price");
+                    if (i == askList.size() - 1) bestAsk = Double.parseDouble(p);
+                    orderBookModel.addRow(new Object[]{p, entry.getString("size"), "ASK"});
                 }
-                if (bids != null) {
-                    for (int i = 0; i < Math.min(5, bids.elements().size()); i++) {
-                        JsonObject entry = (JsonObject) bids.elements().get(i);
-                        String p = entry.getString("price");
-                        if (i == 0) bestBid = Double.parseDouble(p);
-                        orderBookModel.addRow(new Object[]{p, entry.getString("size"), "BID"});
-                    }
+
+                // Add top 5 bids (highest prices at the top of the bid section)
+                for (int i = 0; i < Math.min(5, bidList.size()); i++) {
+                    JsonObject entry = bidList.get(i);
+                    String p = entry.getString("price");
+                    if (i == 0) bestBid = Double.parseDouble(p);
+                    orderBookModel.addRow(new Object[]{p, entry.getString("size"), "BID"});
                 }
 
                 liquidityLabel.setText("Liquidity: " + formatVal(market.getString("liquidity")));
