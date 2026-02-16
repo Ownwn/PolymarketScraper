@@ -8,6 +8,16 @@ import java.util.Map;
 
 public class Http {
 
+    public static String getRaw(String url) {
+        try {
+            HttpURLConnection connection = (HttpURLConnection) new URI(url).toURL().openConnection();
+            connection.setRequestMethod("GET");
+            return new String(connection.getInputStream().readAllBytes());
+        } catch (IOException | URISyntaxException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     public static JsonObject getJsonObject(String url) {
         return getJsonObject(url, null);
     }

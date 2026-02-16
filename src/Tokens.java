@@ -37,7 +37,9 @@ public class Tokens {
     }
 
     private boolean isNum() {
-        return i < s.length() && current() >= 48 && current()-48 <= 9;
+        if (i >= s.length()) return false;
+        char c = current();
+        return (c >= '0' && c <= '9') || c == '-';
     }
 
     private boolean isTrue() {
@@ -71,7 +73,11 @@ public class Tokens {
     private void grabNum() {
         StringBuilder numRes = new StringBuilder();
         boolean hasDot = false;
-        while (isNum() || (isDot() && (hasDot = true))) {
+        if (current() == '-') {
+            numRes.append('-');
+            i++;
+        }
+        while (i < s.length() && ((current() >= '0' && current() <= '9') || (current() == '.' && (hasDot = true)))) {
             numRes.append(s.charAt(i));
             i++;
         }
@@ -118,7 +124,7 @@ public class Tokens {
 
             switch (current()) {
                 case '\"' -> grabString();
-                case ' ' -> i++;
+                case ' ', '\n', '\r', '\t' -> i++;
                 case ':' -> addNext(':');
                 case '{' -> addNext('{');
                 case '}' -> addNext('}');

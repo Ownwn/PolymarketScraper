@@ -26,7 +26,7 @@ public class DataLogger {
         appendToFile(fileName, rawJson);
     }
 
-    public synchronized void logTransaction(MessageHandler.Transaction t) {
+    public synchronized void logTransaction(Transaction t) {
         String fileName = LOG_DIR + "/trades_" + LocalDateTime.now().format(FILE_DATE_FORMAT) + ".log";
         String entry = String.format("[%s] %s | %s | %s | $%.2f | %s",
                 LocalDateTime.now().format(LOG_TIME_FORMAT),
