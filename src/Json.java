@@ -36,6 +36,7 @@ final class Parser {
             case JsonBoolean jb -> parseBoolean();
             case JsonLong jl -> parseLong();
             case JsonDouble jd -> parseDouble();
+            case JsonNull jn -> parseNull();
             default -> throw new IllegalStateException("Unexpected value: " + t.peek());
         };
     }
@@ -48,6 +49,10 @@ final class Parser {
 
     public JsonBoolean parseBoolean() {
         return parseJsonObj(JsonBoolean.class);
+    }
+
+    public JsonNull parseNull() {
+        return parseJsonObj(JsonNull.class);
     }
 
     public JsonDouble parseDouble() {
@@ -140,6 +145,13 @@ record JsonBoolean(boolean inner) implements Json {
     }
 }
 
+record JsonNull() implements Json {
+    @Override
+    public String toString() {
+        return "null";
+    }
+}
+
 record JsonPair(JsonString left, Json right) implements Json {
     @Override
     public String toString() {
@@ -158,21 +170,37 @@ record JsonObject(List<JsonPair> fields) implements Json { // json spec "allows"
     }
 
     public JsonObject getObj(String rawKey) {
-        return (JsonObject) get(rawKey);
+        Json obj = get(rawKey);
+        if (obj instanceof JsonNull) return null;
+        return (JsonObject) obj;
+    }
+
+    public JsonArray getArray(String rawKey) {
+        Json obj = get(rawKey);
+        if (obj instanceof JsonNull) return null;
+        return (JsonArray) obj;
     }
 
     public String getString(String rawKey) {
-        return ((JsonString) get(rawKey)).inner();
+        Json obj = get(rawKey);
+        if (obj == null || obj instanceof JsonNull) return null;
+        if (obj instanceof JsonString js) return js.inner();
+        if (obj instanceof JsonLong jl) return String.valueOf(jl.inner());
+        if (obj instanceof JsonDouble jd) return String.valueOf(jd.inner());
+        return obj.toString();
     }
 
     public double getDouble(String rawKey) {
         Json obj = get(rawKey);
+        if (obj == null || obj instanceof JsonNull) return 0.0;
         if (obj instanceof JsonLong(long inner)) return inner;
         return ((JsonDouble) obj).inner();
     }
 
     public long getLong(String rawKey) {
-        return ((JsonLong) get(rawKey)).inner();
+        Json obj = get(rawKey);
+        if (obj == null || obj instanceof JsonNull) return 0L;
+        return ((JsonLong) obj).inner();
     }
 }
 

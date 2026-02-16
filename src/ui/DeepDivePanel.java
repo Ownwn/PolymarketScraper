@@ -1,13 +1,16 @@
-package ui;
 
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
+import java.util.*;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 
 public class DeepDivePanel extends JPanel {
     private final JComboBox<String> marketSelector = new JComboBox<>();
+    private final Map<String, String> titleToSlug = new HashMap<>();
     private final JLabel deepDiveLabel = new JLabel("Select a market to deep dive", SwingConstants.CENTER);
     private final DefaultTableModel orderBookModel = new DefaultTableModel(new Object[]{"Price", "Size", "Side"}, 0);
     private final DefaultTableModel volumePriceModel = new DefaultTableModel(new Object[]{"Price Level", "Total Volume ($)"}, 0);
@@ -25,9 +28,10 @@ public class DeepDivePanel extends JPanel {
         loadBtn.setFont(new Font("Arial", Font.BOLD, 20));
         loadBtn.addActionListener(e -> {
             String selected = (String) marketSelector.getSelectedItem();
-            if (selected != null) {
-                deepDiveLabel.setText("Deep Dive: " + selected);
-                loadPlaceholderData(selected);
+            String slug = titleToSlug.get(selected);
+            if (slug != null) {
+                deepDiveLabel.setText("Loading: " + selected + "...");
+                new Thread(() -> loadRealData(selected, slug)).start();
             }
         });
 
@@ -47,12 +51,16 @@ public class DeepDivePanel extends JPanel {
         contentPanel.add(obScroll);
 
         // Liquidity & Info
-        JPanel infoPanel = new JPanel(new GridLayout(3, 1, 10, 10));
+        JPanel infoPanel = new JPanel(new GridLayout(4, 1, 10, 10));
         infoPanel.setBorder(BorderFactory.createTitledBorder(BorderFactory.createEtchedBorder(), "Market Liquidity & Info", 0, 0, new Font("Arial", Font.BOLD, 20)));
         liquidityLabel.setFont(new Font("Arial", Font.BOLD, 24));
         infoPanel.add(liquidityLabel);
-        infoPanel.add(new JLabel("Spread: Placeholder", SwingConstants.CENTER) {{ setFont(new Font("Arial", Font.PLAIN, 20)); }});
-        infoPanel.add(new JLabel("24h Volume: Placeholder", SwingConstants.CENTER) {{ setFont(new Font("Arial", Font.PLAIN, 20)); }});
+        JLabel spreadLabel = new JLabel("Spread: -", SwingConstants.CENTER) {{ setFont(new Font("Arial", Font.PLAIN, 20)); }};
+        JLabel volLabel = new JLabel("24h Volume: -", SwingConstants.CENTER) {{ setFont(new Font("Arial", Font.PLAIN, 20)); }};
+        JLabel priceLabel = new JLabel("Last Price: -", SwingConstants.CENTER) {{ setFont(new Font("Arial", Font.PLAIN, 20)); }};
+        infoPanel.add(spreadLabel);
+        infoPanel.add(volLabel);
+        infoPanel.add(priceLabel);
         contentPanel.add(infoPanel);
 
         // Volume at Price
@@ -69,33 +77,95 @@ public class DeepDivePanel extends JPanel {
         add(deepDiveLabel, BorderLayout.SOUTH);
     }
 
-    public void updateMarketSelector(Set<String> markets) {
+    private void loadRealData(String title, String slug) {
+        try {
+            JsonObject market = Http.getJsonObject("https://gamma-api.polymarket.com/markets/slug/" + slug);
+            
+            Json tokenData = market.get("clobTokenIds");
+            JsonArray tokens = null;
+            
+            if (tokenData instanceof JsonArray ja) {
+                tokens = ja;
+            } else if (tokenData instanceof JsonString js) {
+                // If it's a string, try to parse it as a JSON array
+                Json parsed = Json.parse(js.inner());
+                if (parsed instanceof JsonArray ja) tokens = ja;
+            }
+
+            if (tokens == null || tokens.elements().isEmpty()) {
+                SwingUtilities.invokeLater(() -> deepDiveLabel.setText("No tokens found for: " + title));
+                return;
+            }
+            
+            String yesTokenId = ((JsonString) tokens.elements().get(0)).inner();
+            JsonObject book = Http.getJsonObject("https://clob.polymarket.com/book?token_id=" + yesTokenId);
+            JsonArray asks = book.getArray("asks");
+            JsonArray bids = book.getArray("bids");
+
+            SwingUtilities.invokeLater(() -> {
+                orderBookModel.setRowCount(0);
+                double bestAsk = -1, bestBid = -1;
+
+                if (asks != null) {
+                    for (int i = 0; i < Math.min(5, asks.elements().size()); i++) {
+                        JsonObject entry = (JsonObject) asks.elements().get(i);
+                        String p = entry.getString("price");
+                        if (i == 0) bestAsk = Double.parseDouble(p);
+                        orderBookModel.addRow(new Object[]{p, entry.getString("size"), "ASK"});
+                    }
+                }
+                if (bids != null) {
+                    for (int i = 0; i < Math.min(5, bids.elements().size()); i++) {
+                        JsonObject entry = (JsonObject) bids.elements().get(i);
+                        String p = entry.getString("price");
+                        if (i == 0) bestBid = Double.parseDouble(p);
+                        orderBookModel.addRow(new Object[]{p, entry.getString("size"), "BID"});
+                    }
+                }
+
+                liquidityLabel.setText("Liquidity: " + formatVal(market.getString("liquidity")));
+                deepDiveLabel.setText("Deep Dive: " + title);
+                
+                Component[] comps = ((JPanel) ((JPanel) getComponent(1)).getComponent(1)).getComponents();
+                if (bestAsk != -1 && bestBid != -1) {
+                    ((JLabel)comps[1]).setText(String.format("Spread: %.4f", bestAsk - bestBid));
+                }
+                ((JLabel)comps[2]).setText("24h Vol: " + formatVal(market.getString("volume24h")));
+                ((JLabel)comps[3]).setText("Last Price: " + formatVal(market.getString("lastTradePrice")));
+
+                volumePriceModel.setRowCount(0);
+                volumePriceModel.addRow(new Object[]{"Total", formatVal(market.getString("volume"))});
+            });
+
+        } catch (Exception e) {
+            SwingUtilities.invokeLater(() -> deepDiveLabel.setText("Error loading data: " + e.getMessage()));
+            e.printStackTrace();
+        }
+    }
+
+    private String formatVal(String val) {
+        if (val == null || val.equals("null")) return "0.00";
+        try {
+            double d = Double.parseDouble(val);
+            return String.format("$%,.2f", d);
+        } catch (Exception e) {
+            return val;
+        }
+    }
+
+    public void updateMarketSelector(Map<String, String> markets) {
         String currentSelection = (String) marketSelector.getSelectedItem();
         DefaultComboBoxModel<String> model = (DefaultComboBoxModel<String>) marketSelector.getModel();
         boolean changed = false;
-        for (String m : markets) {
-            if (model.getIndexOf(m) == -1) {
-                model.addElement(m);
+        for (String title : markets.keySet()) {
+            titleToSlug.put(title, markets.get(title));
+            if (model.getIndexOf(title) == -1) {
+                model.addElement(title);
                 changed = true;
             }
         }
         if (changed && currentSelection != null) {
             marketSelector.setSelectedItem(currentSelection);
         }
-    }
-
-    private void loadPlaceholderData(String marketTitle) {
-        orderBookModel.setRowCount(0);
-        orderBookModel.addRow(new Object[]{"0.55", "1500", "ASK"});
-        orderBookModel.addRow(new Object[]{"0.54", "800", "ASK"});
-        orderBookModel.addRow(new Object[]{"0.52", "1200", "BID"});
-        orderBookModel.addRow(new Object[]{"0.51", "3000", "BID"});
-
-        volumePriceModel.setRowCount(0);
-        volumePriceModel.addRow(new Object[]{"0.50-0.55", "15400.00"});
-        volumePriceModel.addRow(new Object[]{"0.45-0.50", "8200.50"});
-        volumePriceModel.addRow(new Object[]{"0.40-0.45", "3100.00"});
-
-        liquidityLabel.setText("Liquidity: $45,230.00");
     }
 }

@@ -1,11 +1,8 @@
-package ui;
 
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.util.List;
-import Main.Transaction;
-import Main.JLink;
 
 public class UserTradeDialog {
     public static void show(JFrame parent, String user, List<Transaction> trades) {

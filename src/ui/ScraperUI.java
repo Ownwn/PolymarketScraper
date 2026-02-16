@@ -1,5 +1,3 @@
-package ui;
-
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
@@ -7,10 +5,6 @@ import java.util.*;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
-
-// These imports assume they stay in the default package or you move them too.
-// If you move them, update these.
-import Main.*; 
 
 public class ScraperUI extends JFrame {
     private final MessageHandler messageHandler;
@@ -123,9 +117,9 @@ public class ScraperUI extends JFrame {
 
         dashboard.updateData(buys, sells, spenders, smarts);
 
-        Set<String> markets = new TreeSet<>();
-        for (var e : buys) markets.add((String)e.getValue()[0]);
-        for (var e : sells) markets.add((String)e.getValue()[0]);
+        Map<String, String> markets = new HashMap<>();
+        for (var e : buys) markets.put((String)e.getValue()[0], e.getKey());
+        for (var e : sells) markets.put((String)e.getValue()[0], e.getKey());
         deepDive.updateMarketSelector(markets);
     }
 

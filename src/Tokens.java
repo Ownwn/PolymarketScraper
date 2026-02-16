@@ -57,6 +57,19 @@ public class Tokens {
         return isTrue() || isFalse();
     }
 
+    private boolean isNull() {
+        return i <= s.length() - 4 && s.subSequence(i, i+4).equals("null");
+    }
+
+    private void grabNull() {
+        if (isNull()) {
+            tokens.add(new JsonNull());
+            i += 4;
+        } else {
+            throw new RuntimeException("expecting null");
+        }
+    }
+
     private void grabBool() {
         if (isTrue()) {
             tokens.add(new JsonBoolean(true));
@@ -89,23 +102,41 @@ public class Tokens {
 
     private void grabString() {
         StringBuilder res = new StringBuilder();
-        i++;
-        while (true) {
-            if (out()) {
-                System.err.println(s);
-                throw new RuntimeException("Missing closing JSON string");
-            }
-
-
-            if (current() == '\"' && prev() != '\\') {
-                break;
+        i++; // skip opening "
+        while (i < s.length()) {
+            char c = s.charAt(i);
+            if (c == '\"') {
+                i++; // skip closing "
+                tokens.add(new JsonString(res.toString()));
+                return;
+            } else if (c == '\\') {
+                i++;
+                if (i >= s.length()) throw new RuntimeException("Unterminated escape sequence");
+                char escaped = s.charAt(i);
+                switch (escaped) {
+                    case '\"' -> res.append('\"');
+                    case '\\' -> res.append('\\');
+                    case '/' -> res.append('/');
+                    case 'b' -> res.append('\b');
+                    case 'f' -> res.append('\f');
+                    case 'n' -> res.append('\n');
+                    case 'r' -> res.append('\r');
+                    case 't' -> res.append('\t');
+                    case 'u' -> {
+                        if (i + 4 >= s.length()) throw new RuntimeException("Invalid unicode escape");
+                        String hex = s.subSequence(i + 1, i + 5).toString();
+                        res.append((char) Integer.parseInt(hex, 16));
+                        i += 4;
+                    }
+                    default -> res.append(escaped);
+                }
+                i++;
             } else {
-                res.append(current());
+                res.append(c);
                 i++;
             }
         }
-        i++;
-        tokens.add(new JsonString(res.toString()));
+        throw new RuntimeException("Missing closing JSON string");
     }
 
     public Tokens(CharSequence raw) {
@@ -119,6 +150,9 @@ public class Tokens {
                 continue;
             } else if (isBool()) {
                 grabBool();
+                continue;
+            } else if (isNull()) {
+                grabNull();
                 continue;
             }
 

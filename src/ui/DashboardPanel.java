@@ -1,4 +1,3 @@
-package ui;
 
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
@@ -124,8 +123,7 @@ public class DashboardPanel extends JPanel {
 
     public void addLog(String message) {
         SwingUtilities.invokeLater(() -> {
-            logArea.append(message + "
-");
+            logArea.append(message + "\n");
             if (logArea.getLineCount() > 100) {
                 try {
                     int end = logArea.getLineStartOffset(1);
