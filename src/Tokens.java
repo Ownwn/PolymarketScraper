@@ -85,18 +85,45 @@ public class Tokens {
 
     private void grabNum() {
         StringBuilder numRes = new StringBuilder();
-        boolean hasDot = false;
+        boolean isDouble = false;
+        
         if (current() == '-') {
             numRes.append('-');
             i++;
         }
-        while (i < s.length() && ((current() >= '0' && current() <= '9') || (current() == '.' && (hasDot = true)))) {
+        
+        while (i < s.length() && Character.isDigit(s.charAt(i))) {
             numRes.append(s.charAt(i));
             i++;
         }
+        
+        if (i < s.length() && s.charAt(i) == '.') {
+            isDouble = true;
+            numRes.append('.');
+            i++;
+            while (i < s.length() && Character.isDigit(s.charAt(i))) {
+                numRes.append(s.charAt(i));
+                i++;
+            }
+        }
+        
+        if (i < s.length() && (s.charAt(i) == 'e' || s.charAt(i) == 'E')) {
+            isDouble = true;
+            numRes.append(s.charAt(i));
+            i++;
+            if (i < s.length() && (s.charAt(i) == '+' || s.charAt(i) == '-')) {
+                numRes.append(s.charAt(i));
+                i++;
+            }
+            while (i < s.length() && Character.isDigit(s.charAt(i))) {
+                numRes.append(s.charAt(i));
+                i++;
+            }
+        }
 
-        Json val = hasDot ? new JsonDouble(Double.parseDouble(numRes.toString()))
-                : new JsonLong(Long.parseLong(numRes.toString()));
+        String finalNum = numRes.toString();
+        Json val = isDouble ? new JsonDouble(Double.parseDouble(finalNum))
+                : new JsonLong(Long.parseLong(finalNum));
         tokens.add(val);
     }
 

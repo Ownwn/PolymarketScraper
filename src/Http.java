@@ -31,7 +31,15 @@ public class Http {
                     connection.setRequestProperty(entry.getKey(), entry.getValue());
                 }
             }
-            return Json.parseObject(new String(connection.getInputStream().readAllBytes()));
+            
+            int code = connection.getResponseCode();
+            if (code >= 200 && code < 300) {
+                return Json.parseObject(new String(connection.getInputStream().readAllBytes()));
+            } else {
+                java.io.InputStream es = connection.getErrorStream();
+                String error = (es != null) ? new String(es.readAllBytes()) : "No error stream";
+                throw new RuntimeException("HTTP GET failed with code " + code + " for " + url + ": " + error);
+            }
         } catch (IOException | URISyntaxException e) {
             throw new RuntimeException(e);
         }

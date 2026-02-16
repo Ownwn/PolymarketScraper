@@ -98,28 +98,42 @@ public class DeepDivePanel extends JPanel {
             }
             
             String yesTokenId = ((JsonString) tokens.elements().get(0)).inner();
-            JsonObject book = Http.getJsonObject("https://clob.polymarket.com/book?token_id=" + yesTokenId);
-            JsonArray asks = book.getArray("asks");
-            JsonArray bids = book.getArray("bids");
-
+            JsonObject book = null;
+            try {
+                book = Http.getJsonObject("https://clob.polymarket.com/book?token_id=" + yesTokenId);
+            } catch (Exception e) {
+                if (e.getMessage().contains("No orderbook exists") || e.getMessage().contains("404")) {
+                    // This is fine, just means no CLOB book
+                } else {
+                    throw e;
+                }
+            }
+            
+            final JsonObject finalBook = book;
             SwingUtilities.invokeLater(() -> {
                 orderBookModel.setRowCount(0);
                 
                 // Collect and sort asks descending
                 List<JsonObject> askList = new ArrayList<>();
-                if (asks != null) {
+                if (finalBook != null && finalBook.get("asks") instanceof JsonArray asks) {
                     for (Json e : asks.elements()) askList.add((JsonObject) e);
                 }
                 askList.sort((a, b) -> Double.compare(Double.parseDouble(b.getString("price")), Double.parseDouble(a.getString("price"))));
                 
                 // Collect and sort bids descending
                 List<JsonObject> bidList = new ArrayList<>();
-                if (bids != null) {
+                if (finalBook != null && finalBook.get("bids") instanceof JsonArray bids) {
                     for (Json e : bids.elements()) bidList.add((JsonObject) e);
                 }
                 bidList.sort((a, b) -> Double.compare(Double.parseDouble(b.getString("price")), Double.parseDouble(a.getString("price"))));
 
                 double bestAsk = -1, bestBid = -1;
+
+                if (askList.isEmpty() && bidList.isEmpty()) {
+                    deepDiveLabel.setText("Deep Dive: " + title + " (No Active Order Book)");
+                } else {
+                    deepDiveLabel.setText("Deep Dive: " + title);
+                }
 
                 // Add top 5 asks (will be the lowest prices at the bottom of the ask section)
                 int askStart = Math.max(0, askList.size() - 5);
@@ -139,11 +153,12 @@ public class DeepDivePanel extends JPanel {
                 }
 
                 liquidityLabel.setText("Liquidity: " + formatVal(market.getString("liquidity")));
-                deepDiveLabel.setText("Deep Dive: " + title);
                 
                 Component[] comps = ((JPanel) ((JPanel) getComponent(1)).getComponent(1)).getComponents();
                 if (bestAsk != -1 && bestBid != -1) {
                     ((JLabel)comps[1]).setText(String.format("Spread: %.4f", bestAsk - bestBid));
+                } else {
+                    ((JLabel)comps[1]).setText("Spread: -");
                 }
                 ((JLabel)comps[2]).setText("24h Vol: " + formatVal(market.getString("volume24h")));
                 ((JLabel)comps[3]).setText("Last Price: " + formatVal(market.getString("lastTradePrice")));
