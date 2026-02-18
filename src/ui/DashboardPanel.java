@@ -52,6 +52,22 @@ public class DashboardPanel extends JPanel {
         table.getTableHeader().setFont(new Font("Arial", Font.BOLD, 22));
         table.setRowHeight(35);
         table.removeColumn(table.getColumnModel().getColumn(2));
+        
+        Color textColor = title.toLowerCase().contains("bought") ? new Color(0, 150, 0) : Color.RED;
+        table.setDefaultRenderer(Object.class, new javax.swing.table.DefaultTableCellRenderer() {
+            @Override
+            public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
+                Component c = super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
+                c.setForeground(textColor);
+                if (isSelected) {
+                    c.setBackground(table.getSelectionBackground());
+                } else {
+                    c.setBackground(table.getBackground());
+                }
+                return c;
+            }
+        });
+
         table.addMouseListener(new java.awt.event.MouseAdapter() {
             public void mousePressed(java.awt.event.MouseEvent e) {
                 if (e.getClickCount() == 2) {

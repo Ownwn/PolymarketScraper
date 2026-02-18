@@ -192,9 +192,13 @@ record JsonObject(List<JsonPair> fields) implements Json { // json spec "allows"
 
     public double getDouble(String rawKey) {
         Json obj = get(rawKey);
-        if (obj == null || obj instanceof JsonNull) return 0.0;
-        if (obj instanceof JsonLong(long inner)) return inner;
-        return ((JsonDouble) obj).inner();
+        return switch (obj) {
+            case null -> 0.0;
+            case JsonNull jsonNull -> 0.0;
+            case JsonLong(long inner) -> inner;
+            case JsonString(String inner) -> Double.parseDouble(inner);
+            default -> ((JsonDouble) obj).inner();
+        };
     }
 
     public long getLong(String rawKey) {

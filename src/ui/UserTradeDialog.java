@@ -27,6 +27,26 @@ public class UserTradeDialog {
         JTable table = new JTable(model);
         table.setFont(new Font("Arial", Font.PLAIN, 18));
         table.setRowHeight(40);
+        table.setDefaultRenderer(Object.class, new javax.swing.table.DefaultTableCellRenderer() {
+            @Override
+            public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
+                Component c = super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
+                String side = (String) table.getValueAt(row, 1);
+                if ("SELL".equals(side)) {
+                    c.setForeground(Color.RED);
+                } else if ("BUY".equals(side)) {
+                    c.setForeground(new Color(0, 150, 0));
+                } else {
+                    c.setForeground(Color.BLACK);
+                }
+                if (isSelected) {
+                    c.setBackground(table.getSelectionBackground());
+                } else {
+                    c.setBackground(table.getBackground());
+                }
+                return c;
+            }
+        });
 
         table.getColumn("Action").setCellRenderer(new ButtonRenderer());
         table.getColumn("Action").setCellEditor(new ButtonEditor(new JCheckBox(), v -> {
