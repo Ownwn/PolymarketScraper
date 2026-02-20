@@ -11,6 +11,7 @@ public class ScraperUI extends JFrame {
     private final LeaderboardTracker leaderboard = new LeaderboardTracker();
     private final DashboardPanel dashboard;
     private final DeepDivePanel deepDive;
+    private final TradingPanel tradingPanel;
     private final JTabbedPane tabbedPane = new JTabbedPane();
     
     private boolean paused = false;
@@ -22,17 +23,17 @@ public class ScraperUI extends JFrame {
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLayout(new BorderLayout(15, 15));
 
-        // Top Panel (Global Controls)
         JPanel topPanel = createTopPanel();
         add(topPanel, BorderLayout.NORTH);
 
-        // Dashboard and Deep Dive Panels
         dashboard = new DashboardPanel(this::handleUserTradeAction, JLink::openWebpage);
         deepDive = new DeepDivePanel();
+        tradingPanel = new TradingPanel();
 
         tabbedPane.setFont(new Font("Arial", Font.BOLD, 24));
         tabbedPane.addTab("Dashboard", dashboard);
         tabbedPane.addTab("Market Deep Dive", deepDive);
+        tabbedPane.addTab("Trading", tradingPanel);
         add(tabbedPane, BorderLayout.CENTER);
 
         setSize(1800, 1200);

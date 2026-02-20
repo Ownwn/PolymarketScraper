@@ -1,3 +1,6 @@
+import { load } from "https://deno.land/std@0.204.0/dotenv/mod.ts";
+await load({ export: true });
+
 import express from "npm:express@4.18.2";
 import { ClobClient } from "npm:@polymarket/clob-client@^5.2.3";
 import {Wallet} from "ethers";
@@ -65,6 +68,39 @@ app.get("/trades", async (_req: any, res: any) => {
     console.error("Error fetching open orders:", error);
     res.status(500).json({ error: error.message });
   }
+});
+
+app.post("/order", async (req: any, res: any) => {
+    try {
+        const { tokenID, side, price, size } = req.body;
+
+        if (!tokenID || !side || !price || !size) {
+            return res.status(400).json({ error: "tokenID, side, price, and size are required" });
+        }
+
+        const createdOrder = await client.createOrder({
+            token_id: tokenID,
+            side: side.toLowerCase(),
+            price: String(price),
+            size: String(size),
+        });
+
+        res.json(createdOrder);
+    } catch (error: any) {
+        console.error("Error placing order:", error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+
+app.delete("/orders", async (_req: any, res: any) => {
+    try {
+        const result = await client.cancelAll();
+        res.json(result);
+    } catch (error: any) {
+        console.error("Error cancelling orders:", error);
+        res.status(500).json({ error: error.message });
+    }
 });
 
 app.listen(PORT, () => {

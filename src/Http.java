@@ -45,6 +45,33 @@ public class Http {
         }
     }
 
+    public static JsonArray getJsonArray(String url) {
+        return getJsonArray(url, null);
+    }
+
+    public static JsonArray getJsonArray(String url, Map<String, String> headers) {
+        try {
+            HttpURLConnection connection = (HttpURLConnection) new URI(url).toURL().openConnection();
+            connection.setRequestMethod("GET");
+            if (headers != null) {
+                for (var entry : headers.entrySet()) {
+                    connection.setRequestProperty(entry.getKey(), entry.getValue());
+                }
+            }
+            
+            int code = connection.getResponseCode();
+            if (code >= 200 && code < 300) {
+                return (JsonArray) Json.parse(new String(connection.getInputStream().readAllBytes()));
+            } else {
+                java.io.InputStream es = connection.getErrorStream();
+                String error = (es != null) ? new String(es.readAllBytes()) : "No error stream";
+                throw new RuntimeException("HTTP GET failed with code " + code + " for " + url + ": " + error);
+            }
+        } catch (IOException | URISyntaxException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     public static JsonObject post(String url, String jsonBody, Map<String, String> headers) {
         try {
             HttpURLConnection connection = (HttpURLConnection) new URI(url).toURL().openConnection();
@@ -68,6 +95,33 @@ public class Http {
             } else {
                 String error = new String(connection.getErrorStream().readAllBytes());
                 throw new RuntimeException("HTTP POST failed with code " + code + ": " + error);
+            }
+        } catch (IOException | URISyntaxException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public static JsonObject delete(String url, Map<String, String> headers) {
+        try {
+            HttpURLConnection connection = (HttpURLConnection) new URI(url).toURL().openConnection();
+            connection.setRequestMethod("DELETE");
+            if (headers != null) {
+                for (var entry : headers.entrySet()) {
+                    connection.setRequestProperty(entry.getKey(), entry.getValue());
+                }
+            }
+            
+            int code = connection.getResponseCode();
+            if (code >= 200 && code < 300) {
+                 try {
+                     return Json.parseObject(new String(connection.getInputStream().readAllBytes()));
+                 } catch (Exception e) {
+                     return new JsonObject(java.util.Collections.emptyList()); 
+                 }
+            } else {
+                 java.io.InputStream es = connection.getErrorStream();
+                 String error = (es != null) ? new String(es.readAllBytes()) : "No error stream";
+                 throw new RuntimeException("HTTP DELETE failed with code " + code + ": " + error);
             }
         } catch (IOException | URISyntaxException e) {
             throw new RuntimeException(e);

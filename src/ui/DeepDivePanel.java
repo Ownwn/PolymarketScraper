@@ -262,7 +262,6 @@ public class DeepDivePanel extends JPanel {
         if (mid < 0.15) {
             sentiment = "Everyone for themselves, GTFO";
             colour = Color.RED;
-            if (pressure > 0.3) sentiment+= "(many buyers)";
         } else if (mid < 0.35) {
             sentiment = "unlikely";
             colour = new Color(204, 204, 0);
