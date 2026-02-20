@@ -28,9 +28,11 @@ if (!proxyAddress) {
     throw Error("missing proxy address (public)")
 }
 
+const wallet = new Wallet(privateKey)
+
 const client = new ClobClient(
   "https://clob.polymarket.com",
-  137, new Wallet(privateKey),
+  137, wallet,
   credentials,
   1,
   proxyAddress
@@ -51,52 +53,16 @@ app.get("/book", async (req: any, res: any) => {
   }
 });
 
-// Get open orders
-app.get("/orders", async (_req: any, res: any) => {
+app.get("/trades", async (_req: any, res: any) => {
   try {
-      console.log("fetching orders")
-    const orders = await client.getOpenOrders();
-      console.log("got orders: ", orders)
+      const orders = await client.getTrades({ // todo not hardcode
+          market: "0x4b02efe53e631ada84681303fd66d79ad615f3d2b6a28b4633d43d935f89af58",
+      },
+          true);
+      console.log("got orders: ", JSON.stringify(orders, null, 2));
     res.json(orders);
   } catch (error: any) {
     console.error("Error fetching open orders:", error);
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Place order
-app.post("/order", async (req: any, res: any) => {
-  try {
-    const { tokenID, side, price, size } = req.body;
-    
-    if (!tokenID || !side || !price || !size) {
-      return res.status(400).json({ error: "Missing required fields: tokenID, side, price, size" });
-    }
-
-    const order = await client.createAndPostOrder(
-      { 
-        tokenID, 
-        price, 
-        size, 
-        side: side.toUpperCase() as any 
-      },
-      { tickSize: "0.01", negRisk: false }
-    );
-    
-    res.json(order);
-  } catch (error: any) {
-    console.error("Error placing order:", error);
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Cancel all orders
-app.delete("/orders", async (_req: any, res: any) => {
-  try {
-    const result = await client.cancelAllOrders();
-    res.json(result);
-  } catch (error: any) {
-    console.error("Error cancelling all orders:", error);
     res.status(500).json({ error: error.message });
   }
 });
